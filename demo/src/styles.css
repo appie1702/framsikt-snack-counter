@@ -105,3 +105,10 @@ footer { text-align: center; margin-top: 24px; }
   .steps { grid-template-columns: repeat(3, 1fr); }
   .report { font-size: 12px; }
 }
+.problems { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.prob { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.pNum { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.pTitle { font-weight: 700; font-size: 15px; }
+.pFix { color: var(--muted); flex: 1; }
+.prob button { align-self: flex-start; margin-top: 4px; }
+.toast { font-size: 15px; }

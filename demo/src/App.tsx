@@ -29,6 +29,23 @@ const fmtTime = (d: Date, tz: string) =>
 
 type Toast = { ok: boolean; text: string } | null;
 
+type ScenarioKey = 'empty' | 'double' | 'fair' | 'spend';
+const PROBLEMS: { key: ScenarioKey; problem: string; fix: string }[] = [
+  { key: 'empty', problem: 'Box sits empty for days', fix: 'One named person is asked, with a 2h deadline. No answer → next person → everyone → coordinator.' },
+  { key: 'double', problem: 'Two people buy on the same day', fix: 'Only one active refill per office, and an atomic commit: the second person is told it is already taken.' },
+  { key: 'fair', problem: 'Same few people pay and wait weeks', fix: 'Whoever is owed the least goes first. Claims go to HR automatically when the receipt is uploaded.' },
+  { key: 'spend', problem: 'Nobody knows the monthly spend', fix: 'Every purchase is recorded in its own currency; one monthly report converts both offices to NOK.' },
+];
+
+/** Accept + upload receipt for the person currently offered the refill. */
+function completeOffered(d: Demo, o: OfficeId, amountMajor: number) {
+  const r = d.service.reportEmpty(o, 'any-employee');
+  const who = r.offeredTo!;
+  d.service.accept(r.id, who);
+  d.service.recordPurchase(r.id, who, { amount: money(amountMajor, d.offices[o].currency), receiptImage: `receipt-${r.id}.jpg` });
+  return { id: r.id, who };
+}
+
 export default function App() {
   const [demo, setDemo] = useState<Demo>(() => createDemo());
   const [, setTick] = useState(0);
@@ -58,6 +75,41 @@ export default function App() {
     location.set(id, loc);
     demo.applyCheckIns();
     refresh();
+  };
+
+  /** Each scenario starts from a fresh, clean state so the result is always the same. */
+  const runScenario = (key: ScenarioKey) => {
+    const d = createDemo();
+    const s = d.service;
+    let msg = '';
+    if (key === 'empty') {
+      const r = s.reportEmpty('OSLO', 'any-employee');
+      const first = r.offeredTo!;
+      d.clock.advance(2 * HOUR);
+      d.applyCheckIns();
+      s.tick();
+      msg = `▶ Oslo box reported empty → ${first} was asked. ${first} did not answer within 2h, so the system automatically asked ${d.store.get(r.id)!.offeredTo}. Nobody can assume "someone else will do it".`;
+    } else if (key === 'double') {
+      const r = s.reportEmpty('OSLO', 'any-employee');
+      const a = r.offeredTo!;
+      const b = PEOPLE.find((p) => p.home === 'OSLO' && p.id !== a)!.id;
+      const ra = s.accept(r.id, a);
+      const rb = s.accept(r.id, b);
+      msg = `▶ ${a} and ${b} both tap "accept" at the same moment. ${a}: ${ra.ok ? 'committed ✅' : ra.reason}. ${b}: ${rb.ok ? 'committed' : `❌ ${rb.reason}`}. The office channel is also told who is buying.`;
+    } else if (key === 'fair') {
+      const first = completeOffered(d, 'OSLO', 900);
+      const next = s.reportEmpty('OSLO', 'any-employee');
+      msg = `▶ ${first.who} bought snacks for 900 NOK and is waiting for HR (claim sent automatically). Next time the box is empty, ${next.offeredTo} is asked instead, because ${first.who} is still owed money. See "Next pick" in the Oslo card.`;
+    } else {
+      const o = completeOffered(d, 'OSLO', 900);
+      const b = completeOffered(d, 'BLR', 2400);
+      for (const id of [o.id, b.id]) d.hr.decide(d.store.get(id)!.claim!.hrClaimId!, 'APPROVED');
+      s.syncClaims();
+      msg = '▶ One refill in each office: 900 NOK in Oslo, 2 400 INR in Bengaluru. Both claims approved by HR. The monthly report below shows each office in its own currency and a total of 1 200 NOK (2 400 INR × 0.125).';
+    }
+    setDemo(d);
+    setHrFail('none');
+    say(true, msg);
   };
 
   const currentRefill = (o: OfficeId): Refill | undefined =>
@@ -100,8 +152,23 @@ export default function App() {
         </div>
       </header>
 
-      <details className="try" open>
-        <summary>Try these scenarios</summary>
+      <section className="problems">
+        {PROBLEMS.map((p, i) => (
+          <div className="prob" key={p.key}>
+            <div className="pNum">Problem {i + 1}</div>
+            <div className="pTitle">❌ {p.problem}</div>
+            <div className="pFix">✅ {p.fix}</div>
+            <button className="primary" onClick={() => runScenario(p.key)}>
+              ▶ Show me
+            </button>
+          </div>
+        ))}
+      </section>
+
+      {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`}>{toast.text}</div>}
+
+      <details className="try">
+        <summary>More things to try yourself</summary>
         <ol>
           <li><b>Happy path:</b> Report empty → Accept → Upload receipt → approve in the HR panel.</li>
           <li><b>No double buying:</b> Report empty, then hit <i>⚡ Two people accept at once</i>. Only one wins.</li>
@@ -111,8 +178,6 @@ export default function App() {
           <li><b>HR failures:</b> set "next HR call" to <i>timeout</i> before uploading a receipt. No blind retry; the coordinator is asked to reconcile.</li>
         </ol>
       </details>
-
-      {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`}>{toast.text}</div>}
 
       <section className="offices">
         {(['OSLO', 'BLR'] as OfficeId[]).map((o) => {
