@@ -8,6 +8,7 @@ Automates refilling the Oslo and Bengaluru snack counters:
 - reimbursement through the external HR system;
 - one monthly spend report across NOK and INR.
 
+- **Live interactive demo:** https://framsikt.arpitabhyankar.com (fallback: https://framsikt-snack-demo.vercel.app). A Vite + React page that drives the real core in `src/` (see `demo/`).
 - **Design:** [DESIGN.md](DESIGN.md) (2 pages)
 - **Why each choice was made:** [DECISIONS.md](DECISIONS.md)
 - **Requirements analysis:** [docs/00-analysis.md](docs/00-analysis.md)
@@ -45,3 +46,11 @@ npm run typecheck
 | `test/selection.test.ts` | Fair choice (money owed, then refill count). Absent/inactive people skipped. Visitors can refill and are charged to the visited office. Debts compared across currencies. |
 | `test/budget-and-report.test.ts` | Exact money arithmetic. Reserve/settle/release. Approval when the budget is low. Overspend flagged. Wrong-currency receipt rejected. Office-time-zone month boundary. Report totals across both currencies. |
 | `test/claims.test.ts` | Exactly one HR claim per refill (retry on outage, no blind retry on timeout). Rejection handling. 10-day nudge. |
+
+## Demo (optional)
+
+```bash
+cd demo && npm install && npm run dev
+```
+
+The demo has no logic of its own: it imports `src/` directly and wires it to an in-browser simulated chat and HR system, plus buttons to move time forward.
