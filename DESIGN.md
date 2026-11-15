@@ -5,19 +5,44 @@
 
 ## 1. A refill from "empty" to "reimbursed"
 
-```
-report empty ─► OFFERED to best candidate ──decline / 2h no reply──► next candidate
- (anyone,         │                          after 3 direct offers ─► BROADCAST (first to accept wins)
- idempotent)      │                                                   └─ 4h nobody ─► coordinator
-                  ▼ accept (compare-and-set: one winner)         [budget estimate reserved]
-              COMMITTED ── 24h, no receipt ─► released, re-offered to someone else
-                  ▼ receipt: amount + photo
-              PURCHASED ─► claim sent to HR automatically [estimate replaced by real amount]
-                  ▼                      HR down → retried · HR timed out → coordinator reconciles
-            CLAIM_SUBMITTED ─► REIMBURSED (HR approved)  |  CLAIM_REJECTED (volunteer + coordinator told)
+```mermaid
+flowchart TD
+    E(["📦 Box reported empty<br/>anyone · duplicate reports ignored"])
+    E -->|budget OK| O
+    E -->|budget too low| A["AWAITING_BUDGET_APPROVAL<br/>coordinator decides"]
+    A -->|approved| O
+
+    O["OFFERED<br/>one named person · 2h to answer"]
+    O -->|"declined / no reply<br/>→ next best person"| O
+    O -->|3 direct offers failed| B["BROADCAST<br/>first to accept wins"]
+    B -.->|nobody within 4h| X[/"🚨 Coordinator alerted"/]
+
+    O -->|accepts| C
+    B -->|accepts| C
+    C["COMMITTED<br/>exactly one person · budget estimate reserved · 24h to buy"]
+    C -->|"no receipt in 24h<br/>→ released, re-offered"| O
+    C -->|"receipt: amount + photo"| P
+
+    P["PURCHASED<br/>box restocked · real amount replaces estimate"]
+    P -.->|"HR down → retry"| P
+    P -->|claim sent to HR automatically| S["CLAIM_SUBMITTED<br/>HR takes 1–10 days"]
+    P -.->|"HR timed out → outcome unknown"| R[/"NEEDS_RECONCILIATION<br/>coordinator checks HR"/]
+    S -->|approved| D(["✅ REIMBURSED"])
+    S -->|rejected| J[/"CLAIM_REJECTED<br/>volunteer + coordinator told"/]
+
+    classDef empty fill:#fde2e2,stroke:#d9534f,color:#111
+    classDef work fill:#fff4d6,stroke:#e0a800,color:#111
+    classDef money fill:#dff0ff,stroke:#2b7bd6,color:#111
+    classDef done fill:#dcf5e3,stroke:#2e9e57,color:#111
+    classDef alert fill:#eeeeee,stroke:#777,color:#111
+    class E,A empty
+    class O,B,C work
+    class P,S money
+    class D done
+    class X,R,J alert
 ```
 
-If the remaining monthly budget can't cover a typical refill, the refill starts in `AWAITING_BUDGET_APPROVAL` and the office coordinator decides.
+🟥 box empty · 🟨 finding & committing one person · 🟦 money in flight · 🟩 done · ⬜ needs a human. Dotted arrows are failure paths.
 
 ## 2. Main parts and the data each keeps
 

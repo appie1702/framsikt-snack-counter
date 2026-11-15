@@ -1,5 +1,7 @@
 # Framsikt — Snack Counter Automation: Requirements Analysis
 
+> Written before implementation, as the starting analysis. The final design is in [DESIGN.md](../DESIGN.md) and the decisions in [DECISIONS.md](../DECISIONS.md).
+
 Source: `docs/assignment.pdf` + Anisha's email (Sat 14 Nov 2026).
 **Deadline: 9 PM IST, Sun 15 Nov 2026.**
 
@@ -61,42 +63,11 @@ Scale is 35 volunteers and about 10 refills a month per office. A heap or a trie
 
 ---
 
-## 4. Refill lifecycle (draft state machine)
+## 4. Refill lifecycle
 
-```
-            report empty (anyone, idempotent)
-                     │
-                     ▼
-               ┌──────────┐  offer to best candidate (accept window)
-               │  OPEN    │──────────────────────────┐
-               └──────────┘                          │
-                     ▲  decline / accept-timeout     ▼
-                     │  → next candidate       ┌──────────┐
-                     └─────────────────────────│ OFFERED  │
-                                               └──────────┘
-                                                     │ accept (CAS: only one wins)
-                                                     ▼            reserve est. budget
-                                               ┌──────────┐
-       purchase-timeout → release, re-offer ◄──│COMMITTED │
-                                               └──────────┘
-                                                     │ upload receipt (amount, currency, image)
-                                                     ▼            settle actual vs reservation
-                                               ┌──────────┐
-                                               │PURCHASED │  (box restocked)
-                                               └──────────┘
-                                                     │ auto-submit to HR (idempotent)
-                                                     ▼
-                                               ┌──────────┐   rejected → notify, resubmit / escalate
-                                               │ CLAIMED  │──────────────┐
-                                               └──────────┘              ▼
-                                                     │ approved     ┌──────────┐
-                                                     ▼              │ REJECTED │
-                                               ┌──────────┐         └──────────┘
-                                               │REIMBURSED│
-                                               └──────────┘
-```
+See the diagram in [DESIGN.md §1](../DESIGN.md#1-a-refill-from-empty-to-reimbursed). That is the final version, implemented in `src/snackService.ts`.
 
-Invariant: **at most one refill per office in {OPEN, OFFERED, COMMITTED}.**
+Invariant: **at most one active refill per office** (awaiting approval, offered, broadcast or committed).
 After PURCHASED the box is full again, so a new empty report can open a new refill even while the claim is still pending at HR.
 
 ---
