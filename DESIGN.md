@@ -5,44 +5,64 @@
 
 ## 1. A refill from "empty" to "reimbursed"
 
+**Phase A: get exactly one named owner** (the box is empty)
+
 ```mermaid
-flowchart TD
-    E(["📦 Box reported empty<br/>anyone · duplicate reports ignored"])
+flowchart LR
+    E(["📦 Box reported empty<br/>anyone · duplicates ignored"])
+    A["AWAITING APPROVAL<br/>budget too low"]
+    O["OFFERED<br/>one named person<br/>2h to answer"]
+    B["BROADCAST<br/>first to accept wins"]
+    C(["🔒 COMMITTED<br/>exactly one person<br/>estimate reserved · 24h to buy"])
+    X[/"🚨 Coordinator"/]
+
     E -->|budget OK| O
-    E -->|budget too low| A["AWAITING_BUDGET_APPROVAL<br/>coordinator decides"]
-    A -->|approved| O
+    E -->|budget low| A
+    A -->|coordinator approves| O
+    O -->|"decline / 2h silence<br/>→ next best person"| O
+    O -->|3 offers failed| B
+    B -.->|nobody in 4h| X
+    O ==>|accept| C
+    B ==>|accept| C
+    C -.->|"no receipt in 24h<br/>→ released, re-offered"| O
 
-    O["OFFERED<br/>one named person · 2h to answer"]
-    O -->|"declined / no reply<br/>→ next best person"| O
-    O -->|3 direct offers failed| B["BROADCAST<br/>first to accept wins"]
-    B -.->|nobody within 4h| X[/"🚨 Coordinator alerted"/]
-
-    O -->|accepts| C
-    B -->|accepts| C
-    C["COMMITTED<br/>exactly one person · budget estimate reserved · 24h to buy"]
-    C -->|"no receipt in 24h<br/>→ released, re-offered"| O
-    C -->|"receipt: amount + photo"| P
-
-    P["PURCHASED<br/>box restocked · real amount replaces estimate"]
-    P -.->|"HR down → retry"| P
-    P -->|claim sent to HR automatically| S["CLAIM_SUBMITTED<br/>HR takes 1–10 days"]
-    P -.->|"HR timed out → outcome unknown"| R[/"NEEDS_RECONCILIATION<br/>coordinator checks HR"/]
-    S -->|approved| D(["✅ REIMBURSED"])
-    S -->|rejected| J[/"CLAIM_REJECTED<br/>volunteer + coordinator told"/]
-
-    classDef empty fill:#fde2e2,stroke:#d9534f,color:#111
-    classDef work fill:#fff4d6,stroke:#e0a800,color:#111
-    classDef money fill:#dff0ff,stroke:#2b7bd6,color:#111
-    classDef done fill:#dcf5e3,stroke:#2e9e57,color:#111
-    classDef alert fill:#eeeeee,stroke:#777,color:#111
+    classDef empty fill:#fde2e2,stroke:#d9534f,stroke-width:2px,color:#111
+    classDef work fill:#fff4d6,stroke:#e0a800,stroke-width:2px,color:#111
+    classDef alert fill:#f1f1f1,stroke:#888,color:#111
     class E,A empty
     class O,B,C work
-    class P,S money
-    class D done
-    class X,R,J alert
+    class X alert
 ```
 
-🟥 box empty · 🟨 finding & committing one person · 🟦 money in flight · 🟩 done · ⬜ needs a human. Dotted arrows are failure paths.
+**Phase B: get the volunteer paid** (the box is full again)
+
+```mermaid
+flowchart LR
+    C(["🔒 COMMITTED"])
+    P["🛒 PURCHASED<br/>box restocked<br/>real amount replaces estimate"]
+    S["📨 CLAIM SUBMITTED<br/>HR takes 1–10 days"]
+    D(["✅ REIMBURSED"])
+    R[/"⚠️ NEEDS RECONCILIATION<br/>coordinator checks HR"/]
+    J[/"❌ REJECTED<br/>volunteer + coordinator told"/]
+
+    C ==>|"receipt + photo"| P
+    P -.->|"HR down → retry"| P
+    P ==>|auto-sent to HR| S
+    P -.->|"HR timeout<br/>(may exist already)"| R
+    S ==>|approved| D
+    S -.->|rejected| J
+
+    classDef work fill:#fff4d6,stroke:#e0a800,stroke-width:2px,color:#111
+    classDef money fill:#dff0ff,stroke:#2b7bd6,stroke-width:2px,color:#111
+    classDef done fill:#dcf5e3,stroke:#2e9e57,stroke-width:2px,color:#111
+    classDef alert fill:#f1f1f1,stroke:#888,color:#111
+    class C work
+    class P,S money
+    class D done
+    class R,J alert
+```
+
+Thick arrows are the happy path; dotted arrows are failure paths. 🟥 box empty · 🟨 finding one owner · 🟦 money in flight · 🟩 done · ⬜ a human steps in.
 
 ## 2. Main parts and the data each keeps
 
