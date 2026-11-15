@@ -16,6 +16,9 @@ import { ConcurrencyError, RefillStore } from './refillStore.js';
 import type { Roster, VolunteerStats } from './roster.js';
 import { DAY, HOUR, type Clock } from './time.js';
 
+const localTime = (d: Date, timeZone: string) =>
+  new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
+
 export interface Config {
   /** How long a directly-offered volunteer has to accept or decline. */
   acceptWindowMs: number;
@@ -132,7 +135,7 @@ export class SnackService {
 
     // Compare-and-set: if someone else committed between our read and this write, we lose cleanly.
     return this.write(r, (saved) => {
-      this.chat.sendDirect(employeeId, `Thanks! Refill ${saved.id} is yours. Please buy and upload the receipt by ${saved.purchaseDeadline!.toISOString()}.`);
+      this.chat.sendDirect(employeeId, `Thanks! Refill ${saved.id} is yours. Please buy and upload the receipt by ${localTime(saved.purchaseDeadline!, this.offices[saved.officeId].timeZone)}.`);
       this.chat.postToOfficeChannel(saved.officeId, `${employeeId} is refilling the snack box. No need for anyone else to buy.`);
       return saved;
     });

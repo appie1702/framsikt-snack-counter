@@ -4,3 +4,8 @@ coverage
 docs/assignment.pdf
 docs/plan.md
 docs/questions-email.md
+demo/node_modules
+demo/dist
+.claude
+.vercel
+demo/.vercel
