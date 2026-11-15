@@ -1,0 +1,6 @@
+node_modules
+.DS_Store
+coverage
+docs/assignment.pdf
+docs/plan.md
+docs/questions-email.md
